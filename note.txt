@@ -1,1 +1,2 @@
 npx prisma db push => untuk migrasi 
+npx prisma generate => Perintah ini akan membaca file schema.prisma milikmu dan secara ajaib menciptakan PrismaClient lengkap dengan nama-nama tabelmu (seperti Food, Restaurant, dll) agar dikenali oleh TypeScript.

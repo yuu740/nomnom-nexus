@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  createdAt       DateTime         @default(now())
+  restaurants     Restaurant[]
+  restaurantTypes RestaurantType[]
+  foodTypes       FoodType[]
+}
+
+model RestaurantType {
+  id          String       @id @default(uuid())
+  name        String
+  userId      String?      // Null = Bawaan sistem, Ada isi = Custom dari user
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurants Restaurant[]
+  createdAt   DateTime     @default(now())
+}
+
+model Restaurant {
+  id        String          @id @default(uuid())
+  name      String
+  typeId    String?
+  type      RestaurantType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foods     Food[]
+  createdAt DateTime        @default(now())
+}
+
+model FoodType {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foods     Food[]
+  createdAt DateTime @default(now())
+}
+
+model Food {
+  id           String      @id @default(uuid())
+  name         String
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  typeId       String?
+  type         FoodType?   @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+}

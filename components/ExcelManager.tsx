@@ -2,29 +2,40 @@
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { importExcelData } from "../app/actions";
+import BiscuitModal from "./BiscuitModal";
 
 export default function ExcelManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [modal, setModal] = useState({
+    isOpen: false,
+    type: "success" as any,
+    title: "",
+    message: "",
+  });
 
-  // Fungsi 1: Membuat dan mendownload template
   const downloadTemplate = () => {
-    // Data contoh agar pengguna paham cara isinya
+    // TAMBAHKAN KOLOM TIPE
     const templateData = [
-      { "Nama Restoran": "Warung Bu Ani", "Nama Makanan": "Nasi Goreng" },
-      { "Nama Restoran": "Warung Bu Ani", "Nama Makanan": "Mie Goreng" },
-      { "Nama Restoran": "McD", "Nama Makanan": "Burger" },
+      {
+        "Nama Restoran": "Warung Bu Ani",
+        "Tipe Restoran": "Warung",
+        "Nama Makanan": "Nasi Goreng",
+        "Tipe Makanan": "Gorengan",
+      },
+      {
+        "Nama Restoran": "McD",
+        "Tipe Restoran": "Fast Food",
+        "Nama Makanan": "Burger",
+        "Tipe Makanan": "Junk Food",
+      },
     ];
-
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Makanan");
-
-    // Download file-nya
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
     XLSX.writeFile(workbook, "Template_NomNom_Nexus.xlsx");
   };
 
-  // Fungsi 2: Membaca file yang diupload pengguna
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -36,63 +47,73 @@ export default function ExcelManager() {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-
-        // Ubah Excel jadi JSON
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-        // Cocokkan nama kolom Excel dengan database kita
+        // BACA TIPE DARI EXCEL
         const formattedData = jsonData.map((row) => ({
-          restaurantName: row["Nama Restoran"] || "",
-          foodName: row["Nama Makanan"] || "",
+          restaurantName: String(row["Nama Restoran"] || ""),
+          restaurantType: String(row["Tipe Restoran"] || ""),
+          foodName: String(row["Nama Makanan"] || ""),
+          foodType: String(row["Tipe Makanan"] || ""),
         }));
 
         if (formattedData.length > 0) {
-          // Kirim ke database melalui Server Action
           await importExcelData(formattedData);
-          alert(
-            `Yeay! Berhasil mengimpor ${formattedData.length} makanan baru! 🍪`,
-          );
+          setModal({
+            isOpen: true,
+            type: "success",
+            title: "Berhasil!",
+            message: `${formattedData.length} data masuk!`,
+          });
         } else {
-          alert("Datanya kosong atau nama kolomnya tidak sesuai template!");
+          setModal({
+            isOpen: true,
+            type: "error",
+            title: "Kosong!",
+            message: "Datanya kosong / tidak sesuai template.",
+          });
         }
       } catch (error) {
-        console.error(error);
-        alert("Waduh, gagal membaca file. Pastikan formatnya .xlsx ya!");
+        setModal({
+          isOpen: true,
+          type: "error",
+          title: "Gagal!",
+          message: "Pastikan file berformat .xlsx ya!",
+        });
       } finally {
         setIsLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
-
     reader.readAsArrayBuffer(file);
   };
 
   return (
-    <div className="flex flex-wrap gap-4 mb-8">
+    <div className="flex gap-4 mb-8">
+      <BiscuitModal
+        {...modal}
+        onClose={() => setModal({ ...modal, isOpen: false })}
+      />
       <button
         onClick={downloadTemplate}
-        className="px-6 py-2 bg-biscuit-dark text-biscuit-light font-bold rounded-xl shadow-md hover:bg-biscuit-choco transition border-2 border-transparent"
+        className="px-6 py-2 bg-biscuit-dark text-white font-bold rounded-xl"
       >
-        ⬇️ Download Template
+        ⬇️ Template
       </button>
-
-      {/* Input File Tersembunyi */}
       <input
         type="file"
-        accept=".xlsx, .xls"
+        accept=".xlsx"
         className="hidden"
         ref={fileInputRef}
         onChange={handleFileUpload}
       />
-
       <button
         onClick={() => fileInputRef.current?.click()}
         disabled={isLoading}
-        className="px-6 py-2 bg-white text-biscuit-choco font-bold rounded-xl shadow-md border-2 border-biscuit-dark hover:bg-biscuit-light transition disabled:opacity-50"
+        className="px-6 py-2 bg-white border-2 border-biscuit font-bold rounded-xl"
       >
-        {isLoading ? "Memproses..." : "⬆️ Import Data Excel"}
+        {isLoading ? "Proses..." : "⬆️ Import"}
       </button>
     </div>
   );

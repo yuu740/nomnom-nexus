@@ -85,7 +85,18 @@ export async function addFoodData(formData: FormData) {
   revalidatePath("/");
 }
 
-// LAKUKAN HAL YANG SAMA untuk fungsi importExcelData:
+export async function deleteFoodData(id: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Akses ditolak");
+
+  // Pastikan makanan yang dihapus milik user yang sedang login
+  await prisma.food.deleteMany({
+    where: { id: id, restaurant: { userId: session.user.id } },
+  });
+  revalidatePath("/manage");
+  revalidatePath("/");
+}
+
 export async function importExcelData(data: any[]) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new Error("Kamu harus login dulu!");
@@ -93,16 +104,48 @@ export async function importExcelData(data: any[]) {
 
   for (const item of data) {
     if (!item.restaurantName || !item.foodName) continue;
+
+    // 1. Proses Tipe Restoran
+    let restTypeId = null;
+    if (item.restaurantType) {
+      let rType = await prisma.restaurantType.findFirst({
+        where: { name: item.restaurantType, userId },
+      });
+      if (!rType)
+        rType = await prisma.restaurantType.create({
+          data: { name: item.restaurantType, userId },
+        });
+      restTypeId = rType.id;
+    }
+
+    // 2. Proses Tipe Makanan
+    let foodTypeId = null;
+    if (item.foodType) {
+      let fType = await prisma.foodType.findFirst({
+        where: { name: item.foodType, userId },
+      });
+      if (!fType)
+        fType = await prisma.foodType.create({
+          data: { name: item.foodType, userId },
+        });
+      foodTypeId = fType.id;
+    }
+
+    // 3. Proses Restoran & Makanan
     let restaurant = await prisma.restaurant.findFirst({
-      where: { name: item.restaurantName, userId: userId },
+      where: { name: item.restaurantName, userId },
     });
     if (!restaurant) {
       restaurant = await prisma.restaurant.create({
-        data: { name: item.restaurantName, userId: userId },
+        data: { name: item.restaurantName, userId, typeId: restTypeId },
       });
     }
     await prisma.food.create({
-      data: { name: item.foodName, restaurantId: restaurant.id },
+      data: {
+        name: item.foodName,
+        restaurantId: restaurant.id,
+        typeId: foodTypeId,
+      },
     });
   }
   revalidatePath("/manage");

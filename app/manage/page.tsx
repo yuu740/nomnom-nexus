@@ -5,6 +5,7 @@ import FoodForm from "../../components/FoodForm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import DeleteFoodButton from "@/components/DeleteFoodButton";
 
 type Props = {
   searchParams: Promise<{ q?: string; sort?: string }>;
@@ -97,6 +98,8 @@ export default async function ManagePage({ searchParams }: Props) {
           Filter
         </button>
       </form>
+
+      <DeleteFoodButton id={food.id} foodName={food.name} />
 
       {/* Tabel */}
       <div className="bg-white rounded-2xl shadow-md border-4 border-biscuit overflow-hidden">

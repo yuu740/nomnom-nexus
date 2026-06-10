@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import LogoutButton from "@/components/LogoutButton";
+import GameRandomizer from "@/components/GameRandomizer";
 
 // Menangkap parameter dari URL untuk keperluan filter
 type Props = {
@@ -60,9 +61,16 @@ export default async function Home({ searchParams }: Props) {
   // 3. Ambil data makanan sesuai kondisi filter
   const foods = await prisma.food.findMany({
     where: whereClause,
-    select: { name: true },
+    include: { restaurant: true },
   });
-
+  const groupedData: Record<string, string[]> = {};
+  foods.forEach((food) => {
+    const restName = food.restaurant.name;
+    if (!groupedData[restName]) {
+      groupedData[restName] = [];
+    }
+    groupedData[restName].push(food.name);
+  });
   const foodNames = foods.map((food) => food.name);
 
   return (
@@ -141,7 +149,8 @@ export default async function Home({ searchParams }: Props) {
 
       {/* Roda Putar dengan data yang sudah terfilter */}
       <div className="-mt-4">
-        <SpinWheel items={foodNames} />
+        <GameRandomizer groupedData={groupedData} />
+        {/* <SpinWheel items={foodNames} /> */}
       </div>
 
       <div className="mt-12 flex gap-4 z-20 relative">

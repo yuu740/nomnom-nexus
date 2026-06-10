@@ -2,12 +2,21 @@ import { prisma } from "../../lib/prisma";
 import Link from "next/link";
 import ExcelManager from "../../components/ExcelManager";
 import FoodForm from "../../components/FoodForm";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 type Props = {
   searchParams: Promise<{ q?: string; sort?: string }>;
 };
 
 export default async function ManagePage({ searchParams }: Props) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    redirect("/login");
+  }
+  const userId = session.user.id;
+
   const params = await searchParams;
   const q = params?.q || "";
   const sort = params?.sort || "newest";

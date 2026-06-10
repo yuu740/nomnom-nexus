@@ -50,11 +50,11 @@ export default function SpinWheel({ items }: SpinWheelProps) {
 
   return (
     <div className="flex flex-col items-center mt-8">
-      <div className="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[30px] border-t-biscuit-choco mb-[-10px] z-10"></div>
+      <div className="w-0 h-0 border-l-15 border-l-transparent border-r-15 border-r-transparent border-t-30 border-t-biscuit-choco -mb-2.5 z-10"></div>
 
       <div className="relative w-72 h-72 rounded-full border-8 border-biscuit-choco shadow-xl overflow-hidden">
         <div
-          className="w-full h-full transition-transform duration-[3000ms] ease-out"
+          className="w-full h-full transition-transform duration-3000 ease-out"
           style={{
             background: `conic-gradient(${gradientSlices})`,
             transform: `rotate(${rotation}deg)`,
@@ -69,7 +69,7 @@ export default function SpinWheel({ items }: SpinWheelProps) {
                 className="absolute w-full h-full text-biscuit-choco font-extrabold text-sm flex justify-center pt-4"
                 style={{ transform: `rotate(${angle}deg)` }}
               >
-                <span className="max-w-[80px] text-center truncate">
+                <span className="max-w-20 text-center truncate">
                   {food}
                 </span>
               </div>

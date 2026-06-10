@@ -1,8 +1,15 @@
 "use server";
 import { prisma } from "../lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../lib/auth";
 
 export async function addFoodData(formData: FormData) {
+  // 1. Ambil sesi pengguna yang sedang login
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Kamu harus login dulu!");
+  const userId = session.user.id;
+
   const restaurantName = formData.get("restaurantName") as string;
   const restaurantTypeInput = formData.get("restaurantType") as string;
   const newRestaurantType = formData.get("newRestaurantType") as string;
@@ -13,68 +20,59 @@ export async function addFoodData(formData: FormData) {
 
   if (!restaurantName || !foodName) return;
 
-  // SEMENTARA: Gunakan dummy user
-  let user = await prisma.user.findFirst();
-  if (!user) {
-    user = await prisma.user.create({ data: { email: "tester@nomnom.com" } });
-  }
-
-  // 1. Logika Tipe Restoran
+  // GANTI SEMUA kata `user.id` di baris-baris bawah kode lamamu menjadi `userId`
+  // Contoh:
   let finalRestTypeId: string | null = null;
   const selectedRestType =
     restaurantTypeInput === "other" ? newRestaurantType : restaurantTypeInput;
 
   if (selectedRestType && selectedRestType.trim() !== "") {
     let restType = await prisma.restaurantType.findFirst({
-      where: { name: selectedRestType.trim(), userId: user.id },
+      where: { name: selectedRestType.trim(), userId: userId }, // <-- Ubah di sini
     });
     if (!restType) {
       restType = await prisma.restaurantType.create({
-        data: { name: selectedRestType.trim(), userId: user.id },
+        data: { name: selectedRestType.trim(), userId: userId }, // <-- Ubah di sini
       });
     }
     finalRestTypeId = restType.id;
   }
 
-  // 2. Cari atau Buat Restoran
   let restaurant = await prisma.restaurant.findFirst({
-    where: { name: restaurantName.trim(), userId: user.id },
+    where: { name: restaurantName.trim(), userId: userId }, // <-- Ubah di sini
   });
 
   if (!restaurant) {
     restaurant = await prisma.restaurant.create({
       data: {
         name: restaurantName.trim(),
-        userId: user.id,
+        userId: userId,
         typeId: finalRestTypeId,
-      },
+      }, // <-- Ubah di sini
     });
   } else if (finalRestTypeId) {
-    // Update tipe jika restoran lama belum punya tipe
     await prisma.restaurant.update({
       where: { id: restaurant.id },
       data: { typeId: finalRestTypeId },
     });
   }
 
-  // 3. Logika Tipe Makanan
   let finalFoodTypeId: string | null = null;
   const selectedFoodType =
     foodTypeInput === "other" ? newFoodType : foodTypeInput;
 
   if (selectedFoodType && selectedFoodType.trim() !== "") {
     let fType = await prisma.foodType.findFirst({
-      where: { name: selectedFoodType.trim(), userId: user.id },
+      where: { name: selectedFoodType.trim(), userId: userId }, // <-- Ubah di sini
     });
     if (!fType) {
       fType = await prisma.foodType.create({
-        data: { name: selectedFoodType.trim(), userId: user.id },
+        data: { name: selectedFoodType.trim(), userId: userId }, // <-- Ubah di sini
       });
     }
     finalFoodTypeId = fType.id;
   }
 
-  // 4. Simpan Makanan
   await prisma.food.create({
     data: {
       name: foodName.trim(),
@@ -87,35 +85,26 @@ export async function addFoodData(formData: FormData) {
   revalidatePath("/");
 }
 
-// Fungsi Import Excel disesuaikan agar menerima kolom tipe (opsional)
+// LAKUKAN HAL YANG SAMA untuk fungsi importExcelData:
 export async function importExcelData(data: any[]) {
-  let user = await prisma.user.findFirst();
-  if (!user) {
-    user = await prisma.user.create({ data: { email: "tester@nomnom.com" } });
-  }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Kamu harus login dulu!");
+  const userId = session.user.id;
 
   for (const item of data) {
     if (!item.restaurantName || !item.foodName) continue;
-
-    // Cari/Buat Restoran
     let restaurant = await prisma.restaurant.findFirst({
-      where: { name: item.restaurantName, userId: user.id },
+      where: { name: item.restaurantName, userId: userId },
     });
     if (!restaurant) {
       restaurant = await prisma.restaurant.create({
-        data: { name: item.restaurantName, userId: user.id },
+        data: { name: item.restaurantName, userId: userId },
       });
     }
-
-    // Masukkan makanannya
     await prisma.food.create({
-      data: {
-        name: item.foodName,
-        restaurantId: restaurant.id,
-      },
+      data: { name: item.foodName, restaurantId: restaurant.id },
     });
   }
-
   revalidatePath("/manage");
   revalidatePath("/");
 }

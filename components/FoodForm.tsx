@@ -22,7 +22,7 @@ export default function FoodForm({
       <form action={addFoodData} className="flex flex-col gap-4">
         <div className="flex gap-4 flex-wrap">
           {/* Input Nama Restoran */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="block text-sm font-bold mb-1">
               Nama Restoran
             </label>
@@ -36,7 +36,7 @@ export default function FoodForm({
           </div>
 
           {/* Dropdown Tipe Restoran */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="block text-sm font-bold mb-1">
               Tipe Restoran
             </label>
@@ -68,7 +68,7 @@ export default function FoodForm({
 
         <div className="flex gap-4 flex-wrap">
           {/* Input Nama Makanan */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="block text-sm font-bold mb-1">Nama Makanan</label>
             <input
               type="text"
@@ -80,7 +80,7 @@ export default function FoodForm({
           </div>
 
           {/* Dropdown Tipe Makanan */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="block text-sm font-bold mb-1">Tipe Makanan</label>
             <select
               name="foodType"

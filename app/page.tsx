@@ -1,6 +1,8 @@
 import Link from "next/link";
 import SpinWheel from "../components/SpinWheel";
 import { prisma } from "../lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // Menangkap parameter dari URL untuk keperluan filter
 type Props = {
@@ -8,21 +10,43 @@ type Props = {
 };
 
 export default async function Home({ searchParams }: Props) {
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8 text-center bg-biscuit-light">
+        <h1 className="text-5xl font-extrabold mb-4 text-biscuit-choco">
+          NomNom Nexus
+        </h1>
+        <p className="text-lg font-medium text-biscuit-dark mb-8">
+          Masuk untuk mulai memutar roda biskuit ajaibmu!
+        </p>
+        <Link
+          href="/login"
+          className="px-8 py-3 bg-biscuit-choco text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90"
+        >
+          Masuk / Daftar
+        </Link>
+      </main>
+    );
+  }
+
+  const userId = session.user.id;
   const params = await searchParams;
+
   const selectedRestType = params?.restType || "";
   const selectedFoodType = params?.foodType || "";
 
-  // 1. Ambil daftar tipe untuk mengisi pilihan dropdown
   const restaurantTypes = await prisma.restaurantType.findMany({
+    where: { userId },
     orderBy: { name: "asc" },
   });
   const foodTypes = await prisma.foodType.findMany({
+    where: { userId },
     orderBy: { name: "asc" },
   });
 
-  // 2. Buat kondisi pencarian (where) berdasarkan filter yang dipilih pengguna
-  const whereClause: any = {};
-
+  const whereClause: any = { restaurant: { userId: userId } }; // Pastikan terkunc
   if (selectedFoodType) {
     whereClause.typeId = selectedFoodType;
   }
@@ -75,7 +99,7 @@ export default async function Home({ searchParams }: Props) {
           <select
             name="restType"
             defaultValue={selectedRestType}
-            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-[160px]"
+            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-40"
           >
             <option value="">Semua Restoran</option>
             {restaurantTypes.map((t) => (
@@ -93,7 +117,7 @@ export default async function Home({ searchParams }: Props) {
           <select
             name="foodType"
             defaultValue={selectedFoodType}
-            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-[160px]"
+            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-40"
           >
             <option value="">Semua Makanan</option>
             {foodTypes.map((t) => (
@@ -107,7 +131,7 @@ export default async function Home({ searchParams }: Props) {
         <div className="flex items-end">
           <button
             type="submit"
-            className="px-6 py-2 h-[40px] bg-biscuit-choco text-biscuit-light font-bold rounded-lg shadow hover:opacity-90 transition"
+            className="px-6 py-2 h-10 bg-biscuit-choco text-biscuit-light font-bold rounded-lg shadow hover:opacity-90 transition"
           >
             Terapkan
           </button>
@@ -119,12 +143,21 @@ export default async function Home({ searchParams }: Props) {
         <SpinWheel items={foodNames} />
       </div>
 
-      <Link
-        href="/manage"
-        className="mt-12 text-biscuit-choco font-bold underline hover:text-biscuit-dark transition z-20 relative"
-      >
-        Atur Daftar Makanan
-      </Link>
+      <div className="mt-12 flex gap-4 z-20 relative">
+        <Link
+          href="/manage"
+          className="px-6 py-2 bg-biscuit-dark text-white font-bold rounded-xl hover:bg-biscuit-choco transition"
+        >
+          Atur Daftar Makanan
+        </Link>
+        {/* Tombol Logout Sederhana */}
+        <a
+          href="/api/auth/signout"
+          className="px-6 py-2 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 transition"
+        >
+          Keluar
+        </a>
+      </div>
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import ExcelManager from "@/components/ExcelManager";
 import { prisma } from "../../lib/prisma";
 import { addFoodData } from "../actions";
 import Link from "next/link";
@@ -46,6 +47,7 @@ export default async function ManagePage({ searchParams }: Props) {
       </div>
 
       {/* Form Tambah Data (Tetap sama seperti sebelumnya) */}
+      <ExcelManager />
       <div className="bg-white p-6 rounded-2xl shadow-md border-4 border-biscuit-dark mb-8">
         <h2 className="text-xl font-bold mb-4 text-biscuit-choco">
           Tambah Makanan Baru

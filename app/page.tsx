@@ -1,5 +1,5 @@
 import SpinWheel from "@/components/SpinWheel";
-
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -26,6 +26,12 @@ export default function Home() {
       </p>
 
       <SpinWheel />
+      <Link
+        href="/manage"
+        className="mt-12 text-biscuit-choco font-bold underline hover:text-biscuit-dark transition"
+      >
+        Atur Daftar Makanan
+      </Link>
     </main>
   );
 }

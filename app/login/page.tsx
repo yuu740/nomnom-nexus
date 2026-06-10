@@ -88,6 +88,14 @@ export default function LoginPage() {
             {isLoading ? "Masuk..." : "Login 🔓"}
           </button>
         </form>
+        <div className="mt-4 text-right">
+          <Link
+            href="/forgot-password"
+            className="text-xs font-bold text-biscuit-choco underline hover:text-biscuit-dark"
+          >
+            Lupa Password?
+          </Link>
+        </div>
 
         <p className="mt-6 text-sm font-bold text-biscuit-choco opacity-80">
           Belum punya akun?{" "}

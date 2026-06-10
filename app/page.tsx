@@ -1,3 +1,6 @@
+import SpinWheel from "@/components/SpinWheel";
+
+
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 text-center">
@@ -22,12 +25,7 @@ export default function Home() {
         untukmu!
       </p>
 
-      {/* Placeholder untuk Roda Putar Nanti */}
-      <div className="w-64 h-64 bg-white border-8 border-biscuit-dark rounded-full shadow-xl flex items-center justify-center animate-[spin_10s_linear_infinite]">
-        <span className="font-bold text-xl opacity-50">
-          Roda Putar Nanti Disini
-        </span>
-      </div>
+      <SpinWheel />
     </main>
   );
 }

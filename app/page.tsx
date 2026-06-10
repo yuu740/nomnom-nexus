@@ -3,6 +3,7 @@ import SpinWheel from "../components/SpinWheel";
 import { prisma } from "../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import LogoutButton from "@/components/LogoutButton";
 
 // Menangkap parameter dari URL untuk keperluan filter
 type Props = {
@@ -151,12 +152,7 @@ export default async function Home({ searchParams }: Props) {
           Atur Daftar Makanan
         </Link>
         {/* Tombol Logout Sederhana */}
-        <a
-          href="/api/auth/signout"
-          className="px-6 py-2 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 transition"
-        >
-          Keluar
-        </a>
+        <LogoutButton />
       </div>
     </main>
   );

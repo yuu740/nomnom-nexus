@@ -47,7 +47,7 @@ export default function RegisterPage() {
           Buat Akun Baru
         </h1>
         <p className="text-sm font-medium opacity-80 mb-6 text-biscuit-choco">
-          Mari bergabung di NomNom Nexus!
+          Mari bergabung di NomNom Nexus !
         </p>
 
         {error && (

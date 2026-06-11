@@ -99,8 +99,6 @@ export default async function ManagePage({ searchParams }: Props) {
         </button>
       </form>
 
-      <DeleteFoodButton id={food.id} foodName={food.name} />
-
       {/* Tabel */}
       <div className="bg-white rounded-2xl shadow-md border-4 border-biscuit overflow-hidden">
         <table className="w-full text-left">
@@ -108,12 +106,14 @@ export default async function ManagePage({ searchParams }: Props) {
             <tr>
               <th className="p-4 font-bold">Makanan (Tipe)</th>
               <th className="p-4 font-bold">Restoran (Tipe)</th>
+              <th className="p-4 font-bold text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {foods.length === 0 ? (
               <tr>
-                <td colSpan={2} className="p-4 text-center py-8 opacity-50">
+                <td colSpan={3} className="p-4 text-center py-8 opacity-50">
+                  {/* colSpan diubah jadi 3 */}
                   Data tidak ditemukan.
                 </td>
               </tr>
@@ -124,7 +124,7 @@ export default async function ManagePage({ searchParams }: Props) {
                   className="border-b border-biscuit-light hover:bg-biscuit-light transition"
                 >
                   <td className="p-4 font-semibold text-biscuit-choco">
-                    {food.name}{" "}
+                    {food.name}
                     {food.type && (
                       <span className="text-xs bg-biscuit px-2 py-0.5 rounded-full ml-2 text-biscuit-choco font-bold">
                         {food.type.name}
@@ -132,12 +132,16 @@ export default async function ManagePage({ searchParams }: Props) {
                     )}
                   </td>
                   <td className="p-4 text-sm text-gray-700">
-                    {food.restaurant.name}{" "}
+                    {food.restaurant.name}
                     {food.restaurant.type && (
                       <span className="text-xs bg-biscuit-dark px-2 py-0.5 rounded-full ml-2 text-biscuit-light font-bold">
                         {food.restaurant.type.name}
                       </span>
                     )}
+                  </td>
+                  <td className="p-4 text-center">
+                    {/* Tombol Hapus Diletakkan di Sini */}
+                    <DeleteFoodButton id={food.id} foodName={food.name} />
                   </td>
                 </tr>
               ))

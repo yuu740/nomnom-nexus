@@ -10,6 +10,8 @@ import DeleteRestButton from "@/components/DeleteRestButton";
 import { Fragment } from "react";
 import EditFoodButton from "@/components/EditFoodButton";
 import EditRestButton from "@/components/EditRestButton";
+// 1. IMPORT PRISMA UNTUK MENGAMBIL TYPE PAYLOAD NYA
+import { Prisma } from "@prisma/client";
 
 type Props = {
   searchParams: Promise<{
@@ -19,6 +21,16 @@ type Props = {
   }>;
 };
 
+// 2. BIKIN TIPE DATA OTOMATIS BERDASARKAN INCLUDE DI SCHEMA PRISMA
+type RestaurantWithFoodsAndType = Prisma.RestaurantGetPayload<{
+  include: {
+    type: true;
+    foods: {
+      include: { type: true };
+    };
+  };
+}>;
+
 export default async function ManagePage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
@@ -27,26 +39,24 @@ export default async function ManagePage({ searchParams }: Props) {
   const params = await searchParams;
   const q = params?.q || "";
 
-  // Normalisasi filter dari URL (bisa array atau string)
   let rFilters = params?.restTypes || [];
   if (typeof rFilters === "string") rFilters = [rFilters];
   let fFilters = params?.foodTypes || [];
   if (typeof fFilters === "string") fFilters = [fFilters];
 
-  // 1. TAMBAHKAN 'distinct' AGAR TIPE YANG KEMBAR HANYA MUNCUL SATU KALI
   const allRestTypes = await prisma.restaurantType.findMany({
     where: { userId },
     orderBy: { name: "asc" },
-    distinct: ["name"], // <-- Mencegah duplikat kategori resto
+    distinct: ["name"],
   });
   const allFoodTypes = await prisma.foodType.findMany({
     where: { userId },
     orderBy: { name: "asc" },
-    distinct: ["name"], // <-- Mencegah duplikat kategori makanan
+    distinct: ["name"],
   });
 
-  // Logika Filter Database
-  const whereRest: any = { userId };
+  // 3. JANGAN PAKAI :any DI SINI, BIARKAN PRISMA MENDETEKSI FILTERNYA
+  const whereRest: Prisma.RestaurantWhereInput = { userId };
   if (rFilters.length > 0) whereRest.typeId = { in: rFilters };
   if (q) {
     whereRest.OR = [
@@ -55,8 +65,7 @@ export default async function ManagePage({ searchParams }: Props) {
     ];
   }
 
-  // AMBIL DATA NESTED (RESTORAN BERSERTA MAKANANNYA)
-  const restaurants = await prisma.restaurant.findMany({
+  const restaurants = (await prisma.restaurant.findMany({
     where: whereRest,
     include: {
       type: true,
@@ -67,11 +76,12 @@ export default async function ManagePage({ searchParams }: Props) {
       },
     },
     orderBy: { createdAt: "desc" },
-  });
+  })) as RestaurantWithFoodsAndType[]; // <-- KITA KUNCI PAKAI TYPE PRISMA DI SINI
 
-  const uniqueRestaurantsForForm = (restaurants as any[]).filter(
-    (rest: any, index: number, self: any[]) =>
-      index === self.findIndex((r: any) => r.name === rest.name),
+  // Sekarang .filter() sudah tahu tipe datanya dari skema Prisma, tanpa perlu :any lagi!
+  const uniqueRestaurantsForForm = restaurants.filter(
+    (rest, index, self) =>
+      index === self.findIndex((r) => r.name === rest.name),
   );
 
   return (
@@ -90,18 +100,17 @@ export default async function ManagePage({ searchParams }: Props) {
 
       <ExcelManager />
 
-      {/* Form Input Terpisah */}
       <FoodForm
         restaurants={uniqueRestaurantsForForm}
         restaurantTypes={allRestTypes}
         foodTypes={allFoodTypes}
-        // PERBAIKAN DI SINI: Tambahkan : any pada parameter r dan f
-        allFoodsData={(restaurants as any[]).flatMap((r: any) =>
-          r.foods.map((f: any) => ({ name: f.name, restaurantId: r.id })),
+        // Sekarang .flatMap & .map juga otomatis aman karena r dan f sudah ter-tipe-kan dari skema Prisma!
+        allFoodsData={restaurants.flatMap((r) =>
+          r.foods.map((f) => ({ name: f.name, restaurantId: r.id })),
         )}
       />
 
-      {/* Form Search & Checkbox Filter */}
+      {/* ... SISA CODINGAN FORM DAN TABEL SAMA SEPERTI SEBELUMNYA ... */}
       <form
         method="GET"
         className="mb-6 bg-white p-6 rounded-2xl shadow-md border-4 border-biscuit-dark"
@@ -172,7 +181,6 @@ export default async function ManagePage({ searchParams }: Props) {
         </div>
       </form>
 
-      {/* Tabel Nested View */}
       <div className="bg-white rounded-2xl shadow-md border-4 border-biscuit overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-biscuit-dark text-biscuit-light">
@@ -195,7 +203,6 @@ export default async function ManagePage({ searchParams }: Props) {
             ) : (
               restaurants.map((rest) => (
                 <Fragment key={rest.id}>
-                  {/* BARIS RESTORAN (Induk) */}
                   <tr className="bg-biscuit-light border-y-2 border-biscuit">
                     <td className="p-4 font-extrabold text-biscuit-dark text-lg">
                       🏪 {rest.name}
@@ -205,14 +212,12 @@ export default async function ManagePage({ searchParams }: Props) {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* TOMBOL EDIT RESTORAN */}
                         <EditRestButton rest={rest} types={allRestTypes} />
                         <DeleteRestButton id={rest.id} name={rest.name} />
                       </div>
                     </td>
                   </tr>
 
-                  {/* BARIS MAKANAN (Anak) */}
                   {rest.foods.length === 0 ? (
                     <tr>
                       <td
@@ -236,7 +241,6 @@ export default async function ManagePage({ searchParams }: Props) {
                         </td>
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            {/* TOMBOL EDIT MAKANAN */}
                             <EditFoodButton food={food} types={allFoodTypes} />
                             <DeleteFoodButton
                               id={food.id}

@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import DeleteFoodButton from "@/components/DeleteFoodButton";
 import DeleteRestButton from "@/components/DeleteRestButton";
 import { Fragment } from "react";
+import EditFoodButton from "@/components/EditFoodButton";
+import EditRestButton from "@/components/EditRestButton";
 
 type Props = {
   searchParams: Promise<{
@@ -201,7 +203,11 @@ export default async function ManagePage({ searchParams }: Props) {
                       {rest.type ? rest.type.name : "-"}
                     </td>
                     <td className="p-4 text-center">
-                      <DeleteRestButton id={rest.id} name={rest.name} />
+                      <div className="flex items-center justify-center gap-2">
+                        {/* TOMBOL EDIT RESTORAN */}
+                        <EditRestButton rest={rest} types={allRestTypes} />
+                        <DeleteRestButton id={rest.id} name={rest.name} />
+                      </div>
                     </td>
                   </tr>
 
@@ -228,7 +234,14 @@ export default async function ManagePage({ searchParams }: Props) {
                           {food.type ? food.type.name : "-"}
                         </td>
                         <td className="p-3 text-center">
-                          <DeleteFoodButton id={food.id} foodName={food.name} />
+                          <div className="flex items-center justify-center gap-2">
+                            {/* TOMBOL EDIT MAKANAN */}
+                            <EditFoodButton food={food} types={allFoodTypes} />
+                            <DeleteFoodButton
+                              id={food.id}
+                              foodName={food.name}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))

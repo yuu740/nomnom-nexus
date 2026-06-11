@@ -101,6 +101,77 @@ export async function addFoodOnly(formData: FormData) {
   revalidatePath("/");
 }
 
+// 5. FUNGSI EDIT RESTORAN
+export async function editRestaurantData(formData: FormData) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Akses ditolak");
+  const userId = session.user.id;
+
+  const id = formData.get("id") as string;
+  const name = formData.get("name") as string;
+  const typeInput = formData.get("typeInput") as string;
+  const newType = formData.get("newType") as string;
+
+  if (!id || !name) return;
+
+  let finalTypeId = null;
+  const selectedType = typeInput === "other" ? newType : typeInput;
+  if (selectedType && selectedType.trim() !== "") {
+    let type = await prisma.restaurantType.findFirst({
+      where: { name: selectedType.trim(), userId },
+    });
+    if (!type)
+      type = await prisma.restaurantType.create({
+        data: { name: selectedType.trim(), userId },
+      });
+    finalTypeId = type.id;
+  }
+
+  // Gunakan updateMany untuk memastikan hanya user pemilik yang bisa mengubahnya
+  await prisma.restaurant.updateMany({
+    where: { id, userId },
+    data: { name: name.trim(), typeId: finalTypeId },
+  });
+
+  revalidatePath("/manage");
+  revalidatePath("/");
+}
+
+// 6. FUNGSI EDIT MAKANAN
+export async function editFoodData(formData: FormData) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Akses ditolak");
+  const userId = session.user.id;
+
+  const id = formData.get("id") as string;
+  const name = formData.get("name") as string;
+  const typeInput = formData.get("typeInput") as string;
+  const newType = formData.get("newType") as string;
+
+  if (!id || !name) return;
+
+  let finalTypeId = null;
+  const selectedType = typeInput === "other" ? newType : typeInput;
+  if (selectedType && selectedType.trim() !== "") {
+    let type = await prisma.foodType.findFirst({
+      where: { name: selectedType.trim(), userId },
+    });
+    if (!type)
+      type = await prisma.foodType.create({
+        data: { name: selectedType.trim(), userId },
+      });
+    finalTypeId = type.id;
+  }
+
+  await prisma.food.updateMany({
+    where: { id, restaurant: { userId } },
+    data: { name: name.trim(), typeId: finalTypeId },
+  });
+
+  revalidatePath("/manage");
+  revalidatePath("/");
+}
+
 // 3. FUNGSI HAPUS
 export async function deleteFoodData(id: string) {
   const session = await getServerSession(authOptions);

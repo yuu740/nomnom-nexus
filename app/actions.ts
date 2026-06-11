@@ -4,94 +4,119 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 
-export async function addFoodData(formData: FormData) {
-  // 1. Ambil sesi pengguna yang sedang login
+// 1. TAMBAH RESTORAN SAJA
+export async function addRestaurantOnly(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Kamu harus login dulu!");
+  if (!session?.user?.id) throw new Error("Akses ditolak");
   const userId = session.user.id;
 
-  const restaurantName = formData.get("restaurantName") as string;
-  const restaurantTypeInput = formData.get("restaurantType") as string;
-  const newRestaurantType = formData.get("newRestaurantType") as string;
+  const name = formData.get("name") as string;
+  const typeInput = formData.get("typeId") as string;
+  const newType = formData.get("newType") as string;
 
-  const foodName = formData.get("foodName") as string;
-  const foodTypeInput = formData.get("foodType") as string;
-  const newFoodType = formData.get("newFoodType") as string;
+  if (!name) return;
 
-  if (!restaurantName || !foodName) return;
-
-  // GANTI SEMUA kata `user.id` di baris-baris bawah kode lamamu menjadi `userId`
-  // Contoh:
-  let finalRestTypeId: string | null = null;
-  const selectedRestType =
-    restaurantTypeInput === "other" ? newRestaurantType : restaurantTypeInput;
-
-  if (selectedRestType && selectedRestType.trim() !== "") {
-    let restType = await prisma.restaurantType.findFirst({
-      where: { name: selectedRestType.trim(), userId: userId }, // <-- Ubah di sini
+  // Proses Kategori Restoran
+  let finalTypeId = null;
+  const selectedType = typeInput === "other" ? newType : typeInput;
+  if (selectedType && selectedType.trim() !== "") {
+    let type = await prisma.restaurantType.findFirst({
+      where: { name: selectedType.trim(), userId },
     });
-    if (!restType) {
-      restType = await prisma.restaurantType.create({
-        data: { name: selectedRestType.trim(), userId: userId }, // <-- Ubah di sini
+    if (!type)
+      type = await prisma.restaurantType.create({
+        data: { name: selectedType.trim(), userId },
       });
-    }
-    finalRestTypeId = restType.id;
+    finalTypeId = type.id;
   }
 
-  let restaurant = await prisma.restaurant.findFirst({
-    where: { name: restaurantName.trim(), userId: userId }, // <-- Ubah di sini
+  // 🛡️ CEK DUPLIKAT RESTORAN DI SINI
+  const existingRest = await prisma.restaurant.findFirst({
+    where: { name: name.trim(), userId }, // Cari apakah user ini sudah punya restoran dengan nama ini
   });
 
-  if (!restaurant) {
-    restaurant = await prisma.restaurant.create({
-      data: {
-        name: restaurantName.trim(),
-        userId: userId,
-        typeId: finalRestTypeId,
-      }, // <-- Ubah di sini
-    });
-  } else if (finalRestTypeId) {
+  if (existingRest) {
+    // Jika sudah ada, jangan buat baru! Cukup update kategorinya saja.
     await prisma.restaurant.update({
-      where: { id: restaurant.id },
-      data: { typeId: finalRestTypeId },
+      where: { id: existingRest.id },
+      data: { typeId: finalTypeId || existingRest.typeId },
+    });
+  } else {
+    // Jika benar-benar belum ada, baru buat restoran baru
+    await prisma.restaurant.create({
+      data: { name: name.trim(), typeId: finalTypeId, userId },
     });
   }
-
-  let finalFoodTypeId: string | null = null;
-  const selectedFoodType =
-    foodTypeInput === "other" ? newFoodType : foodTypeInput;
-
-  if (selectedFoodType && selectedFoodType.trim() !== "") {
-    let fType = await prisma.foodType.findFirst({
-      where: { name: selectedFoodType.trim(), userId: userId }, // <-- Ubah di sini
-    });
-    if (!fType) {
-      fType = await prisma.foodType.create({
-        data: { name: selectedFoodType.trim(), userId: userId }, // <-- Ubah di sini
-      });
-    }
-    finalFoodTypeId = fType.id;
-  }
-
-  await prisma.food.create({
-    data: {
-      name: foodName.trim(),
-      restaurantId: restaurant.id,
-      typeId: finalFoodTypeId,
-    },
-  });
 
   revalidatePath("/manage");
   revalidatePath("/");
 }
 
+// 2. TAMBAH MAKANAN SAJA (Milih Restoran)
+export async function addFoodOnly(formData: FormData) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Akses ditolak");
+  const userId = session.user.id;
+
+  const restaurantId = formData.get("restaurantId") as string;
+  const name = formData.get("name") as string;
+  const typeInput = formData.get("typeId") as string;
+  const newType = formData.get("newType") as string;
+
+  if (!restaurantId || !name) return;
+
+  // Proses Kategori Makanan
+  let finalTypeId = null;
+  const selectedType = typeInput === "other" ? newType : typeInput;
+  if (selectedType && selectedType.trim() !== "") {
+    let type = await prisma.foodType.findFirst({
+      where: { name: selectedType.trim(), userId },
+    });
+    if (!type)
+      type = await prisma.foodType.create({
+        data: { name: selectedType.trim(), userId },
+      });
+    finalTypeId = type.id;
+  }
+
+  // 🛡️ CEK DUPLIKAT MAKANAN DI SINI
+  const existingFood = await prisma.food.findFirst({
+    where: { name: name.trim(), restaurantId }, // Cari apakah makanan ini sudah ada di restoran tersebut
+  });
+
+  if (existingFood) {
+    // Jika makanan sudah ada di restoran itu, update saja kategorinya
+    await prisma.food.update({
+      where: { id: existingFood.id },
+      data: { typeId: finalTypeId || existingFood.typeId },
+    });
+  } else {
+    // Jika belum ada, tambahkan makanan baru
+    await prisma.food.create({
+      data: { name: name.trim(), restaurantId, typeId: finalTypeId },
+    });
+  }
+
+  revalidatePath("/manage");
+  revalidatePath("/");
+}
+
+// 3. FUNGSI HAPUS
 export async function deleteFoodData(id: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new Error("Akses ditolak");
-
-  // Pastikan makanan yang dihapus milik user yang sedang login
   await prisma.food.deleteMany({
-    where: { id: id, restaurant: { userId: session.user.id } },
+    where: { id, restaurant: { userId: session.user.id } },
+  });
+  revalidatePath("/manage");
+  revalidatePath("/");
+}
+
+export async function deleteRestaurantData(id: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Akses ditolak");
+  await prisma.restaurant.deleteMany({
+    where: { id, userId: session.user.id },
   });
   revalidatePath("/manage");
   revalidatePath("/");

@@ -1,31 +1,32 @@
 import Link from "next/link";
-import SpinWheel from "../components/SpinWheel";
 import { prisma } from "../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import LogoutButton from "@/components/LogoutButton";
 import GameRandomizer from "@/components/GameRandomizer";
 
-// Menangkap parameter dari URL untuk keperluan filter
 type Props = {
-  searchParams: Promise<{ restType?: string; foodType?: string }>;
+  searchParams: Promise<{
+    restTypes?: string | string[];
+    foodTypes?: string | string[];
+  }>;
 };
 
 export default async function Home({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session?.user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-8 text-center bg-biscuit-light">
         <h1 className="text-5xl font-extrabold mb-4 text-biscuit-choco">
           NomNom Nexus
         </h1>
         <p className="text-lg font-medium text-biscuit-dark mb-8">
-          Masuk untuk mulai memutar roda biskuit ajaibmu!
+          Masuk untuk memutar roda ajaibmu!
         </p>
         <Link
           href="/login"
-          className="px-8 py-3 bg-biscuit-choco text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90"
+          className="px-8 py-3 bg-biscuit-choco text-white font-bold rounded-xl shadow-lg"
         >
           Masuk / Daftar
         </Link>
@@ -36,131 +37,126 @@ export default async function Home({ searchParams }: Props) {
   const userId = session.user.id;
   const params = await searchParams;
 
-  const selectedRestType = params?.restType || "";
-  const selectedFoodType = params?.foodType || "";
+  let rFilters = params?.restTypes || [];
+  if (typeof rFilters === "string") rFilters = [rFilters];
+  let fFilters = params?.foodTypes || [];
+  if (typeof fFilters === "string") fFilters = [fFilters];
 
-  const restaurantTypes = await prisma.restaurantType.findMany({
+  // TAMBAHKAN 'distinct' DI SINI JUGA
+  const allRestTypes = await prisma.restaurantType.findMany({
     where: { userId },
     orderBy: { name: "asc" },
+    distinct: ["name"], // <-- Anti duplikat
   });
-  const foodTypes = await prisma.foodType.findMany({
+  const allFoodTypes = await prisma.foodType.findMany({
     where: { userId },
     orderBy: { name: "asc" },
+    distinct: ["name"], // <-- Anti duplikat
   });
 
-  const whereClause: any = { restaurant: { userId: userId } }; // Pastikan terkunc
-  if (selectedFoodType) {
-    whereClause.typeId = selectedFoodType;
-  }
+  // Tarik data dengan filter
+  const whereClause: any = { restaurant: { userId } };
+  if (rFilters.length > 0) whereClause.restaurant.typeId = { in: rFilters };
+  if (fFilters.length > 0) whereClause.typeId = { in: fFilters };
 
-  if (selectedRestType) {
-    // Cari makanan yang restorannya memiliki typeId yang dipilih
-    whereClause.restaurant = { typeId: selectedRestType };
-  }
-
-  // 3. Ambil data makanan sesuai kondisi filter
   const foods = await prisma.food.findMany({
     where: whereClause,
     include: { restaurant: true },
   });
+
   const groupedData: Record<string, string[]> = {};
   foods.forEach((food) => {
     const restName = food.restaurant.name;
-    if (!groupedData[restName]) {
-      groupedData[restName] = [];
-    }
+    if (!groupedData[restName]) groupedData[restName] = [];
     groupedData[restName].push(food.name);
   });
-  const foodNames = foods.map((food) => food.name);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 text-center overflow-hidden">
-      {/* Logo */}
-      <div className="flex gap-2 mb-4">
-        <div className="w-12 h-16 bg-biscuit-dark text-biscuit-light flex items-center justify-center font-bold text-3xl rounded-md shadow-md transform -rotate-6">
-          N
-        </div>
-        <div className="w-12 h-16 bg-biscuit text-biscuit-choco flex items-center justify-center font-bold text-3xl rounded-md shadow-md z-10">
-          N
-        </div>
-        <div className="w-12 h-16 bg-biscuit-dark text-biscuit-light flex items-center justify-center font-bold text-3xl rounded-md shadow-md transform rotate-6">
-          N
-        </div>
-      </div>
-
-      <h1 className="text-5xl font-extrabold mb-2 drop-shadow-sm">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 text-center overflow-hidden">
+      <h1 className="text-5xl font-extrabold mb-2 drop-shadow-sm mt-8">
         NomNom Nexus
       </h1>
       <p className="text-lg max-w-md font-medium opacity-80 mb-6">
-        Pusing mau makan apa? Biarkan roda biskuit ajaib ini yang memilihkan
-        untukmu!
+        Pilih Mode Undianmu!
       </p>
 
-      {/* FILTER BAR - Membungkus pilihan dalam sebuah form */}
+      {/* FILTER BAR PAKE CHECKBOX */}
       <form
         method="GET"
-        className="mb-8 flex flex-wrap justify-center gap-4 bg-white p-4 rounded-2xl shadow-sm border-4 border-biscuit-dark z-20 relative"
+        className="mb-4 flex flex-col items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border-4 border-biscuit-dark z-20 relative w-full max-w-xl"
       >
-        <div className="flex flex-col text-left">
-          <label className="text-xs font-bold text-biscuit-choco mb-1">
-            Filter Tipe Restoran
-          </label>
-          <select
-            name="restType"
-            defaultValue={selectedRestType}
-            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-40"
-          >
-            <option value="">Semua Restoran</option>
-            {restaurantTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col md:flex-row w-full gap-4 text-left">
+          <div className="flex-1 border-r-0 md:border-r-2 border-biscuit pr-4">
+            <h3 className="text-xs font-bold text-biscuit-choco mb-2">
+              Tipe Restoran:
+            </h3>
+            <div className="flex gap-2 flex-wrap max-h-20 overflow-y-auto">
+              {allRestTypes.length === 0 ? (
+                <span className="text-xs text-gray-400">Kosong</span>
+              ) : (
+                allRestTypes.map((t) => (
+                  <label
+                    key={t.id}
+                    className="text-xs flex items-center gap-1 cursor-pointer bg-biscuit-light px-2 py-1 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      name="restTypes"
+                      value={t.id}
+                      defaultChecked={rFilters.includes(t.id)}
+                    />{" "}
+                    {t.name}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-xs font-bold text-biscuit-choco mb-2">
+              Tipe Makanan:
+            </h3>
+            <div className="flex gap-2 flex-wrap max-h-20 overflow-y-auto">
+              {allFoodTypes.length === 0 ? (
+                <span className="text-xs text-gray-400">Kosong</span>
+              ) : (
+                allFoodTypes.map((t) => (
+                  <label
+                    key={t.id}
+                    className="text-xs flex items-center gap-1 cursor-pointer bg-biscuit-light px-2 py-1 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      name="foodTypes"
+                      value={t.id}
+                      defaultChecked={fFilters.includes(t.id)}
+                    />{" "}
+                    {t.name}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
         </div>
-
-        <div className="flex flex-col text-left">
-          <label className="text-xs font-bold text-biscuit-choco mb-1">
-            Filter Tipe Makanan
-          </label>
-          <select
-            name="foodType"
-            defaultValue={selectedFoodType}
-            className="p-2 border-2 border-biscuit rounded-lg bg-biscuit-light focus:outline-none focus:border-biscuit-choco text-sm font-medium min-w-40"
-          >
-            <option value="">Semua Makanan</option>
-            {foodTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="px-6 py-2 h-10 bg-biscuit-choco text-biscuit-light font-bold rounded-lg shadow hover:opacity-90 transition"
-          >
-            Terapkan
-          </button>
-        </div>
+        <button
+          type="submit"
+          className="px-6 py-2 bg-biscuit-choco text-white text-sm font-bold rounded-lg w-full"
+        >
+          Terapkan Filter
+        </button>
       </form>
 
-      {/* Roda Putar dengan data yang sudah terfilter */}
-      <div className="-mt-4">
+      {/* Komponen Roda Putar Super */}
+      <div className="-mt-2 w-full max-w-2xl">
         <GameRandomizer groupedData={groupedData} />
-        {/* <SpinWheel items={foodNames} /> */}
       </div>
 
-      <div className="mt-12 flex gap-4 z-20 relative">
+      <div className="mt-8 mb-8 flex gap-4 z-20 relative">
         <Link
           href="/manage"
           className="px-6 py-2 bg-biscuit-dark text-white font-bold rounded-xl hover:bg-biscuit-choco transition"
         >
-          Atur Daftar Makanan
+          Atur Menu Makanan
         </Link>
-        {/* Tombol Logout Sederhana */}
         <LogoutButton />
       </div>
     </main>

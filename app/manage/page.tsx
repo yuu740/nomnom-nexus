@@ -6,52 +6,74 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import DeleteFoodButton from "@/components/DeleteFoodButton";
+import DeleteRestButton from "@/components/DeleteRestButton";
+import { Fragment } from "react";
 
 type Props = {
-  searchParams: Promise<{ q?: string; sort?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    restTypes?: string | string[];
+    foodTypes?: string | string[];
+  }>;
 };
 
 export default async function ManagePage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
-    redirect("/login");
-  }
+  if (!session?.user) redirect("/login");
   const userId = session.user.id;
 
   const params = await searchParams;
   const q = params?.q || "";
-  const sort = params?.sort || "newest";
 
-  // Ambil daftar tipe unik untuk dropdown form
-  const restaurantTypes = await prisma.restaurantType.findMany({
+  // Normalisasi filter dari URL (bisa array atau string)
+  let rFilters = params?.restTypes || [];
+  if (typeof rFilters === "string") rFilters = [rFilters];
+  let fFilters = params?.foodTypes || [];
+  if (typeof fFilters === "string") fFilters = [fFilters];
+
+  // 1. TAMBAHKAN 'distinct' AGAR TIPE YANG KEMBAR HANYA MUNCUL SATU KALI
+  const allRestTypes = await prisma.restaurantType.findMany({
+    where: { userId },
     orderBy: { name: "asc" },
+    distinct: ["name"], // <-- Mencegah duplikat kategori resto
   });
-  const foodTypes = await prisma.foodType.findMany({
+  const allFoodTypes = await prisma.foodType.findMany({
+    where: { userId },
     orderBy: { name: "asc" },
+    distinct: ["name"], // <-- Mencegah duplikat kategori makanan
   });
 
-  let orderByQuery: any = { createdAt: "desc" };
-  if (sort === "oldest") orderByQuery = { createdAt: "asc" };
-  if (sort === "az") orderByQuery = { name: "asc" };
-  if (sort === "za") orderByQuery = { name: "desc" };
+  // Logika Filter Database
+  const whereRest: any = { userId };
+  if (rFilters.length > 0) whereRest.typeId = { in: rFilters };
+  if (q) {
+    whereRest.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { foods: { some: { name: { contains: q, mode: "insensitive" } } } },
+    ];
+  }
 
-  const foods = await prisma.food.findMany({
-    where: {
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { restaurant: { name: { contains: q, mode: "insensitive" } } },
-        { type: { name: { contains: q, mode: "insensitive" } } }, // Cari berdasarkan tipe makanan juga
-      ],
-    },
+  // AMBIL DATA NESTED (RESTORAN BERSERTA MAKANANNYA)
+  const restaurants = await prisma.restaurant.findMany({
+    where: whereRest,
     include: {
-      restaurant: { include: { type: true } },
       type: true,
+      foods: {
+        where: fFilters.length > 0 ? { typeId: { in: fFilters } } : {},
+        include: { type: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
-    orderBy: orderByQuery,
+    orderBy: { createdAt: "desc" },
   });
+
+  const uniqueRestaurantsForForm = restaurants.filter(
+    (rest, index, self) =>
+      index === self.findIndex((r) => r.name === rest.name),
+  );
 
   return (
-    <main className="min-h-screen p-8 max-w-4xl mx-auto">
+    <main className="min-h-screen p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-extrabold drop-shadow-sm">
           Atur Menu Makanan
@@ -66,84 +88,152 @@ export default async function ManagePage({ searchParams }: Props) {
 
       <ExcelManager />
 
-      {/* Gunakan Komponen Form Baru */}
-      <FoodForm restaurantTypes={restaurantTypes} foodTypes={foodTypes} />
+      {/* Form Input Terpisah */}
+      <FoodForm
+        restaurants={uniqueRestaurantsForForm}
+        restaurantTypes={allRestTypes}
+        foodTypes={allFoodTypes}
+        allFoodsData={restaurants.flatMap((r) =>
+          r.foods.map((f) => ({ name: f.name, restaurantId: r.id })),
+        )}
+      />
 
-      {/* Form Search & Sort */}
+      {/* Form Search & Checkbox Filter */}
       <form
         method="GET"
-        className="mb-6 flex gap-4 bg-biscuit-light p-4 rounded-xl border-2 border-biscuit"
+        className="mb-6 bg-white p-6 rounded-2xl shadow-md border-4 border-biscuit-dark"
       >
-        <input
-          type="text"
-          name="q"
-          defaultValue={q}
-          placeholder="Cari makanan, restoran, atau tipe..."
-          className="flex-1 p-2 rounded-lg border-2 border-biscuit bg-white"
-        />
-        <select
-          name="sort"
-          defaultValue={sort}
-          className="p-2 rounded-lg border-2 border-biscuit bg-white font-medium"
-        >
-          <option value="newest">Terbaru</option>
-          <option value="oldest">Terlama</option>
-          <option value="az">A - Z</option>
-          <option value="za">Z - A</option>
-        </select>
-        <button
-          type="submit"
-          className="px-6 py-2 bg-biscuit-dark text-biscuit-light font-bold rounded-lg shadow hover:bg-biscuit-choco transition"
-        >
-          Filter
-        </button>
+        <div className="mb-4">
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="🔍 Cari nama restoran atau makanan..."
+            className="w-full p-3 rounded-lg border-2 border-biscuit bg-biscuit-light focus:outline-none focus:border-biscuit-choco"
+          />
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex-1">
+            <h3 className="font-bold text-biscuit-choco mb-2">
+              Pilih Tipe Restoran:
+            </h3>
+            <div className="flex gap-4 flex-wrap max-h-32 overflow-y-auto">
+              {allRestTypes.map((t) => (
+                <label
+                  key={t.id}
+                  className="flex items-center gap-2 text-sm font-medium cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    name="restTypes"
+                    value={t.id}
+                    defaultChecked={rFilters.includes(t.id)}
+                    className="w-4 h-4 accent-biscuit-choco"
+                  />
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-biscuit-choco mb-2">
+              Pilih Tipe Makanan:
+            </h3>
+            <div className="flex gap-4 flex-wrap max-h-32 overflow-y-auto">
+              {allFoodTypes.map((t) => (
+                <label
+                  key={t.id}
+                  className="flex items-center gap-2 text-sm font-medium cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    name="foodTypes"
+                    value={t.id}
+                    defaultChecked={fFilters.includes(t.id)}
+                    className="w-4 h-4 accent-biscuit-choco"
+                  />
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="submit"
+            className="px-6 py-2 bg-biscuit-choco text-white font-bold rounded-lg shadow hover:opacity-90"
+          >
+            Terapkan Filter
+          </button>
+        </div>
       </form>
 
-      {/* Tabel */}
+      {/* Tabel Nested View */}
       <div className="bg-white rounded-2xl shadow-md border-4 border-biscuit overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-biscuit-dark text-biscuit-light">
             <tr>
-              <th className="p-4 font-bold">Makanan (Tipe)</th>
-              <th className="p-4 font-bold">Restoran (Tipe)</th>
+              <th className="p-4 font-bold w-1/2">Nama / Tempat</th>
+              <th className="p-4 font-bold">Kategori</th>
               <th className="p-4 font-bold text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {foods.length === 0 ? (
+            {restaurants.length === 0 ? (
               <tr>
-                <td colSpan={3} className="p-4 text-center py-8 opacity-50">
-                  {/* colSpan diubah jadi 3 */}
+                <td
+                  colSpan={3}
+                  className="p-8 text-center opacity-50 font-bold"
+                >
                   Data tidak ditemukan.
                 </td>
               </tr>
             ) : (
-              foods.map((food) => (
-                <tr
-                  key={food.id}
-                  className="border-b border-biscuit-light hover:bg-biscuit-light transition"
-                >
-                  <td className="p-4 font-semibold text-biscuit-choco">
-                    {food.name}
-                    {food.type && (
-                      <span className="text-xs bg-biscuit px-2 py-0.5 rounded-full ml-2 text-biscuit-choco font-bold">
-                        {food.type.name}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-sm text-gray-700">
-                    {food.restaurant.name}
-                    {food.restaurant.type && (
-                      <span className="text-xs bg-biscuit-dark px-2 py-0.5 rounded-full ml-2 text-biscuit-light font-bold">
-                        {food.restaurant.type.name}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-center">
-                    {/* Tombol Hapus Diletakkan di Sini */}
-                    <DeleteFoodButton id={food.id} foodName={food.name} />
-                  </td>
-                </tr>
+              restaurants.map((rest) => (
+                <Fragment key={rest.id}>
+                  {/* BARIS RESTORAN (Induk) */}
+                  <tr className="bg-biscuit-light border-y-2 border-biscuit">
+                    <td className="p-4 font-extrabold text-biscuit-dark text-lg">
+                      🏪 {rest.name}
+                    </td>
+                    <td className="p-4 font-bold text-biscuit-choco">
+                      {rest.type ? rest.type.name : "-"}
+                    </td>
+                    <td className="p-4 text-center">
+                      <DeleteRestButton id={rest.id} name={rest.name} />
+                    </td>
+                  </tr>
+
+                  {/* BARIS MAKANAN (Anak) */}
+                  {rest.foods.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-12 py-3 text-sm text-gray-400 italic"
+                      >
+                        Belum ada makanan tersimpan.
+                      </td>
+                    </tr>
+                  ) : (
+                    rest.foods.map((food) => (
+                      <tr
+                        key={food.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition"
+                      >
+                        <td className="p-3 pl-12 font-medium text-gray-700">
+                          🍲 {food.name}
+                        </td>
+                        <td className="p-3 text-sm text-gray-600">
+                          {food.type ? food.type.name : "-"}
+                        </td>
+                        <td className="p-3 text-center">
+                          <DeleteFoodButton id={food.id} foodName={food.name} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </Fragment>
               ))
             )}
           </tbody>

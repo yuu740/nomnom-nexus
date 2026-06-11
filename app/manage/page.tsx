@@ -70,8 +70,11 @@ export default async function ManagePage({ searchParams }: Props) {
   });
 
   const uniqueRestaurantsForForm = restaurants.filter(
-    (rest: any, index: number, self: any[]) =>
-      index === self.findIndex((r: any) => r.name === rest.name),
+    (
+      rest: (typeof restaurants)[number],
+      index: number,
+      self: typeof restaurants,
+    ) => index === self.findIndex((r) => r.name === rest.name),
   );
 
   return (

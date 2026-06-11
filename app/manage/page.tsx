@@ -69,11 +69,12 @@ export default async function ManagePage({ searchParams }: Props) {
     orderBy: { createdAt: "desc" },
   });
 
+  // @ts-ignore
   const uniqueRestaurantsForForm = restaurants.filter(
-    (rest: any, index: number, self: any[]) =>
-      index === self.findIndex((r: any) => r.name === rest.name),
+    (rest, index, self) =>
+      index === self.findIndex((r) => r.name === rest.name),
   );
-  
+
   return (
     <main className="min-h-screen p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-8">

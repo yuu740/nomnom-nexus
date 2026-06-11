@@ -95,8 +95,9 @@ export default async function ManagePage({ searchParams }: Props) {
         restaurants={uniqueRestaurantsForForm}
         restaurantTypes={allRestTypes}
         foodTypes={allFoodTypes}
-        allFoodsData={restaurants.flatMap((r) =>
-          r.foods.map((f) => ({ name: f.name, restaurantId: r.id })),
+        // PERBAIKAN DI SINI: Tambahkan : any pada parameter r dan f
+        allFoodsData={(restaurants as any[]).flatMap((r: any) =>
+          r.foods.map((f: any) => ({ name: f.name, restaurantId: r.id })),
         )}
       />
 

@@ -69,9 +69,9 @@ export default async function ManagePage({ searchParams }: Props) {
     orderBy: { createdAt: "desc" },
   });
 
-  const uniqueRestaurantsForForm: any[] = restaurants.filter(
-    (rest, index, self) =>
-      index === self.findIndex((r) => r.name === rest.name),
+  const uniqueRestaurantsForForm = (restaurants as any[]).filter(
+    (rest: any, index: number, self: any[]) =>
+      index === self.findIndex((r: any) => r.name === rest.name),
   );
 
   return (
